@@ -206,26 +206,26 @@
 
     .tax-label {
       font-family: 'IBM Plex Sans', sans-serif;
-      font-size: 10px; font-weight: 400;
+      font-size: 12px; font-weight: 400;
       fill: var(--text); pointer-events: none;
     }
     .tax-label-lg {
-      font-size: 11px; font-weight: 500;
+      font-size: 13px; font-weight: 500;
     }
 
     /* Wert-Beschriftungen */
     .value-label-inner {
       font-family: 'IBM Plex Mono', monospace;
-      font-size: 9px; font-weight: 600;
+      font-size: 11px; font-weight: 600;
       fill: rgba(255,255,255,0.92);
       pointer-events: none;
     }
     .value-label-inner-sm {
-      font-size: 8px;
+      font-size: 10px;
     }
     .value-label-outer {
       font-family: 'IBM Plex Mono', monospace;
-      font-size: 8.5px;
+      font-size: 11px;
       fill: var(--bmf);
       opacity: 0.8;
       pointer-events: none;
@@ -781,7 +781,7 @@ function renderSpiral() {
   svg.selectAll('*').remove();
   svg.attr('viewBox', `0 0 ${W} ${H}`);
 
-  const data  = state.data.data;
+  const data  = state.data.data.slice(0, 28);
   const total = state.data.total;
 
   // ── Skalen ──────────────────────────────────────────────
@@ -843,72 +843,53 @@ function renderSpiral() {
     const r        = rScale(d.value);
     const animRank = sortedForAnim.indexOf(d);
 
-    // Namenslabel sichtbar?
     let showName = false;
     if      (state.labelMode === 'all')   showName = true;
     else if (state.labelMode === 'top10') showName = i < 10;
     else if (state.labelMode === 'none')  showName = false;
-    else showName = r >= maxR * 0.28 || i < 8;
+    else showName = true; // auto: alle 28 beschriften
+
+    if (!showName) return;
 
     // Richtungsvektor vom Zentrum zum Kreis
     const dx  = d.sx - cx, dy = d.sy - cy;
     const len = Math.hypot(dx, dy) || 1;
     const ux  = dx / len, uy = dy / len;
-    const lx  = d.sx + ux * (r + 7);
-    const ly  = d.sy + uy * (r + 7);
-    const anchor = ux > 0.3 ? 'start' : ux < -0.3 ? 'end' : 'middle';
 
-    // ── Wert-Beschriftung INNERHALB des Kreises ──────────
-    if (r >= 22) {
-      const isLarge  = r > maxR * 0.45;
-      const valText  = FMT_MIO(d.value);
+    // Ankerpunkt direkt am Kreisrand
+    const GAP = 8;
+    const lx  = d.sx + ux * (r + GAP);
+    const ly  = d.sy + uy * (r + GAP);
 
-      if (isLarge && showName) {
-        // Zweizeilig: Name oben, Wert unten
-        const shortName = d.name.length > 18 ? d.name.slice(0, 16) + '…' : d.name;
-        gLabels.append('text')
-          .attr('class', 'tax-label tax-label-lg')
-          .attr('x', d.sx).attr('y', d.sy - 9)
-          .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
-          .attr('opacity', 0)
-          .attr('fill', 'rgba(255,255,255,0.95)')
-          .text(shortName)
-          .transition().delay(animRank * 55 + 500).duration(300).attr('opacity', 0.95);
-      }
+    // Textausrichtung horizontal
+    const anchor = ux > 0.25 ? 'start' : ux < -0.25 ? 'end' : 'middle';
 
-      // Wert innen (mittig oder nach unten versetzt wenn Name auch innen)
-      const yVal = (isLarge && showName) ? d.sy + 10 : d.sy;
-      gLabels.append('text')
-        .attr('class', r >= 30 ? 'value-label-inner' : 'value-label-inner value-label-inner-sm')
-        .attr('x', d.sx).attr('y', yVal)
-        .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
-        .attr('opacity', 0)
-        .text(valText)
-        .transition().delay(animRank * 55 + 500).duration(300).attr('opacity', 1);
+    // Vertikale Stapelposition: Name + Wert zentriert auf ly
+    const nameY = ly - 7;
+    const valY  = ly + 8;
 
-    } else {
-      // Kreis zu klein für Innenbeschriftung → Name + Wert außen
-      if (showName) {
-        const shortName = d.name.length > 22 ? d.name.slice(0, 20) + '…' : d.name;
-        gLabels.append('text')
-          .attr('class', r > maxR * 0.45 ? 'tax-label tax-label-lg' : 'tax-label')
-          .attr('x', lx).attr('y', ly - 5)
-          .attr('text-anchor', anchor).attr('dominant-baseline', 'middle')
-          .attr('opacity', 0)
-          .text(shortName)
-          .transition().delay(animRank * 55 + 500).duration(300)
-          .attr('opacity', r > maxR * 0.45 ? 0.9 : 0.72);
+    const shortName = d.name.length > 22 ? d.name.slice(0, 20) + '…' : d.name;
+    const isLarge   = r >= maxR * 0.45;
 
-        // Wert als zweite Zeile außen
-        gLabels.append('text')
-          .attr('class', 'value-label-outer')
-          .attr('x', lx).attr('y', ly + 7)
-          .attr('text-anchor', anchor)
-          .attr('opacity', 0)
-          .text(FMT_MIO(d.value) + ' Mio. €')
-          .transition().delay(animRank * 55 + 600).duration(300).attr('opacity', 0.8);
-      }
-    }
+    // Name direkt neben Kreis
+    gLabels.append('text')
+      .attr('class', isLarge ? 'tax-label tax-label-lg' : 'tax-label')
+      .attr('x', lx).attr('y', nameY)
+      .attr('text-anchor', anchor).attr('dominant-baseline', 'middle')
+      .attr('opacity', 0)
+      .text(shortName)
+      .transition().delay(animRank * 55 + 500).duration(300)
+      .attr('opacity', isLarge ? 0.92 : 0.78);
+
+    // Wert direkt darunter
+    gLabels.append('text')
+      .attr('class', 'value-label-outer')
+      .attr('x', lx).attr('y', valY)
+      .attr('text-anchor', anchor).attr('dominant-baseline', 'middle')
+      .attr('opacity', 0)
+      .text(FMT_MIO(d.value) + ' Mio. €')
+      .transition().delay(animRank * 55 + 600).duration(300)
+      .attr('opacity', 0.88);
   });
 }
 
