@@ -8,31 +8,38 @@
 Ruft Steuereinnahmen aus GENESIS-Online (Destatis) ab und erzeugt
 JSON-Dateien für die D3.js-Steuerspirale.
 
+AUTHENTIFIZIERUNG (laut GENESIS-Doku v5.1):
+  Option A — Persönlicher Token (32 Zeichen, empfohlen):
+    username = TOKEN  |  kein password nötig
+  Option B — Nutzerkennung + Passwort:
+    username = KENNUNG:PASSWORT
+
+  Token aus dem GENESIS-Webinterface:
+    https://www-genesis.destatis.de → Benutzerprofil → „Webservice-Schnittstelle (API)"
+
+API-SPEZIFIKATION:
+  Methode:      POST
+  Endpunkt:     https://www-genesis.destatis.de/genesisWS/rest/2020/data/table
+  Credentials:  HTTP-Header (username / password)
+  Parameter:    Request-Body (application/x-www-form-urlencoded)
+  Antwort:      JSON mit Object.Content = CSV-String
+
 VERWENDUNG:
-  python fetch_data.py                          # auto-detect aktuellstes Jahr
-  python fetch_data.py --year 2023              # bestimmtes Jahr
-  python fetch_data.py --year latest            # explizit: aktuellstes Jahr
-  python fetch_data.py --api-key KENNUNG:PW     # Key per Argument
-  python fetch_data.py --mock                   # (nur Entwicklung) Mock-Daten
+  python fetch_data.py                        # auto-detect aktuellstes Jahr
+  python fetch_data.py --year 2023            # bestimmtes Jahr
+  python fetch_data.py --mock                 # (nur Entwicklung) ohne API
 
-API-KEY:
-  Umgebungsvariable: mein_genesis_key=KENNUNG:PASSWORT
-  Registrierung: https://www-genesis.destatis.de/genesis/online → Benutzerprofil
-
-AUSGABE:
-  data.json            — aktuellstes Jahr (Standard-Ladeadresse der HTML-Seite)
-  data_{year}.json     — jahresspezifische Datei (z.B. data_2024.json)
-
-DEPLOYMENT (Elestio / GitHub Actions):
-  Umgebungsvariable 'mein_genesis_key' setzen, dann:
-  python fetch_data.py --year latest --output data.json
+UMGEBUNGSVARIABLE:
+  mein_genesis_key   →  Token (32 Zeichen)  ODER  KENNUNG:PASSWORT
 """
 
+import csv
+import io
 import json
-import sys
-import os
-import argparse
 import logging
+import os
+import sys
+import argparse
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -94,95 +101,156 @@ MOCK_DATA_2024 = [
 
 
 # ─── GENESIS-ONLINE API ──────────────────────────────────────────────────────
-GENESIS_BASE_URL = "https://www-genesis.destatis.de/genesisWS/rest/2020"
-GENESIS_TABLE    = "71211-0001"
+GENESIS_BASE = "https://www-genesis.destatis.de/genesisWS/rest/2020"
+GENESIS_TABLE = "71211-0001"
+
+# Metadaten-Präfixe, die beim CSV-Parsing übersprungen werden
+_CSV_SKIP_PREFIXES = (
+    "genesis", "©", "stand:", "datenlizenz", "statistisches bundesamt",
+    "kassenmäßige", "tabelle", "__________", "steuereinnahmen",
+)
 
 
-def parse_api_key(api_key_str: str) -> tuple[str, str]:
-    """Erwartet 'KENNUNG:PASSWORT'."""
-    if ":" in api_key_str:
-        username, password = api_key_str.split(":", 1)
+def parse_credentials(key_str: str) -> tuple[str, Optional[str]]:
+    """
+    Gibt (username, password) zurück.
+    - 32-Zeichen-Token → (token, None)   — kein Passwort nötig
+    - KENNUNG:PASSWORT → (kennung, passwort)
+    """
+    key_str = key_str.strip()
+    if len(key_str) == 32 and ":" not in key_str:
+        log.info("Token-Authentifizierung erkannt (32 Zeichen, kein Passwort)")
+        return key_str, None
+    if ":" in key_str:
+        username, password = key_str.split(":", 1)
+        log.info("Kennung/Passwort-Authentifizierung erkannt")
         return username.strip(), password.strip()
-    log.error("API-Key muss das Format 'KENNUNG:PASSWORT' haben.")
-    sys.exit(1)
+    # Unbekanntes Format — als Token behandeln
+    log.warning(f"Unbekanntes Key-Format (Länge {len(key_str)}), behandle als Token")
+    return key_str, None
 
 
-def _get(url: str, params: dict, timeout: int = 30) -> dict:
-    """HTTP GET, liefert JSON-Dict. Nutzt requests wenn verfügbar."""
+def _post(endpoint: str, credentials: tuple[str, Optional[str]], body: dict,
+          timeout: int = 45) -> dict:
+    """
+    POST-Request laut GENESIS-Doku v5.1:
+      - Credentials als HTTP-Header (username, optional password)
+      - Parameter als Body (application/x-www-form-urlencoded)
+    """
+    username, password = credentials
+    headers = {"username": username}
+    if password:
+        headers["password"] = password
+
+    log.debug(f"POST {endpoint}")
+    log.debug(f"Body: {body}")
+
     if HAS_REQUESTS:
-        resp = requests.get(url, params=params, timeout=timeout)
+        resp = requests.post(endpoint, headers=headers, data=body, timeout=timeout)
         resp.raise_for_status()
         return resp.json()
-    full_url = url + "?" + urllib.parse.urlencode(params)
-    with urllib.request.urlopen(full_url, timeout=timeout) as r:
+
+    # Fallback: urllib
+    encoded = urllib.parse.urlencode(body).encode("utf-8")
+    req = urllib.request.Request(
+        endpoint, data=encoded, method="POST",
+        headers={**headers, "Content-Type": "application/x-www-form-urlencoded"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
-def parse_genesis_response(raw: dict, year: int) -> Optional[list[dict]]:
+def parse_genesis_csv(content: str, year: int) -> Optional[list[dict]]:
     """
-    Parst GENESIS-REST-API-Antwort (v2020) in [{name, value}]-Liste.
+    Parst den CSV-String aus Object.Content der GENESIS-Antwort.
 
-    Erwartete Struktur:
-      {
-        "Status":  {"Code": 0, "Content": "..."},
-        "Object":  {
-          "Array": [
-            {"Cells": [{"Value": "Steuerart"}, ..., {"Value": "12345,6"}]}
-          ]
-        }
-      }
+    Das CSV enthält oben Metadaten und Spaltenköpfe (Semikolon-getrennt),
+    dann Datenzeilen im Format:
+        Steuerart-Name;Wert_in_Tsd_EUR[;weitere Spalten...]
+
     Werte kommen in Tausend € → Division durch 1000 → Mio. €
     """
-    status = raw.get("Status", {})
-    code   = status.get("Code", -1)
-    if code != 0:
-        log.error(f"GENESIS-Status {code}: {status.get('Content', '?')}")
-        return None
-
-    obj = raw.get("Object", {})
-    if not obj:
-        log.error("GENESIS-Antwort enthält kein 'Object'-Feld.")
-        return None
-
     results = []
-    rows = obj.get("Array", [])
-    if not rows:
-        log.warning("GENESIS 'Object.Array' ist leer.")
-        return None
+    lines = content.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 
-    for row in rows:
-        cells = row.get("Cells", [])
-        if len(cells) < 2:
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line:
             continue
-        name  = str(cells[0].get("Value", "")).strip()
-        raw_v = str(cells[-1].get("Value", "")).strip()
-        if not name or raw_v in ("", "-", ".", "x"):
+
+        # Metadaten-Zeilen überspringen
+        lower = line.lower()
+        if any(lower.startswith(p) for p in _CSV_SKIP_PREFIXES):
             continue
+
+        parts = [p.strip() for p in line.split(";")]
+        if len(parts) < 2:
+            continue
+
+        name = parts[0]
+        if not name:
+            continue
+
+        # Sonderzeichen / Kennzeichen überspringen
+        if name.lower() in ("", "-", "x", ".", "/") or name.startswith("_"):
+            continue
+
+        # Numerischen Wert suchen (letzte nicht-leere Spalte)
+        raw_val = None
+        for col in reversed(parts[1:]):
+            col = col.strip()
+            if col and col not in ("-", "x", ".", "/", ""):
+                raw_val = col
+                break
+
+        if raw_val is None:
+            continue
+
         try:
-            # Deutsche Zahlenformatierung: "248.920,4" → float
-            value_tsd = float(raw_v.replace(".", "").replace(",", "."))
+            # Deutsche Formatierung: "248.920,4" → float
+            # oder einfach "248920" → float
+            normalized = raw_val.replace(".", "").replace(",", ".")
+            value_tsd = float(normalized)
             value_mio = round(value_tsd / 1000, 1)
             if value_mio > 0:
                 results.append({"name": name, "value": value_mio})
         except (ValueError, TypeError):
-            log.debug(f"Überspringe Zeile mit nicht-numerischem Wert: {raw_v!r}")
+            log.debug(f"Überspringe nicht-numerische Zeile: {raw_val!r} ('{name}')")
             continue
 
-    if not results:
-        log.warning(f"Keine auswertbaren Zeilen aus GENESIS für Jahr {year}.")
-        return None
+    if results:
+        log.info(f"{len(results)} Steuerarten aus CSV geparst (Jahr {year}).")
+    else:
+        log.warning("Keine Daten aus CSV extrahiert.")
 
-    log.info(f"{len(results)} Steuerarten aus GENESIS extrahiert (Jahr {year}).")
-    return results
+    return results or None
 
 
-def fetch_genesis_table(api_key: str, year: int) -> Optional[list[dict]]:
-    """Primärer Endpunkt: /data/table"""
-    username, password = parse_api_key(api_key)
-    endpoint = f"{GENESIS_BASE_URL}/data/table"
-    params = {
-        "username":   username,
-        "password":   password,
+def check_genesis_status(raw: dict, endpoint_label: str) -> bool:
+    """Prüft Status-Code in der GENESIS-Antwort. Gibt True zurück wenn OK."""
+    status = raw.get("Status", {})
+    code   = status.get("Code", -1)
+    msg    = status.get("Content", "?")
+    stype  = status.get("Type", "?")
+
+    if code == 0:
+        log.info(f"GENESIS [{endpoint_label}] Status OK: {msg}")
+        return True
+
+    # Code 22 = Warning (oft harmlos, Daten trotzdem vorhanden)
+    if code == 22:
+        log.warning(f"GENESIS [{endpoint_label}] Warnung (Code 22): {msg}")
+        return True
+
+    log.error(f"GENESIS [{endpoint_label}] Fehler (Code {code}, {stype}): {msg}")
+    return False
+
+
+def fetch_genesis_table(credentials: tuple[str, Optional[str]], year: int) \
+        -> Optional[list[dict]]:
+    """Primärer Endpunkt: POST /data/table"""
+    endpoint = f"{GENESIS_BASE}/data/table"
+    body = {
         "name":       GENESIS_TABLE,
         "area":       "all",
         "compress":   "false",
@@ -190,60 +258,92 @@ def fetch_genesis_table(api_key: str, year: int) -> Optional[list[dict]]:
         "startyear":  str(year),
         "endyear":    str(year),
         "language":   "de",
-        "format":     "json",
+        "job":        "false",
     }
-    log.info(f"GENESIS /data/table  Benutzer={username}  Jahr={year}")
+    log.info(f"GENESIS /data/table  Jahr={year}")
     try:
-        return parse_genesis_response(_get(endpoint, params), year)
+        raw = _post(endpoint, credentials, body)
+        if not check_genesis_status(raw, "data/table"):
+            return None
+        content = raw.get("Object", {}).get("Content", "")
+        if not content:
+            log.warning("Object.Content ist leer.")
+            return None
+        return parse_genesis_csv(content, year)
     except Exception as exc:
         log.warning(f"/data/table Fehler: {exc}")
         return None
 
 
-def fetch_genesis_timeseries(api_key: str, year: int) -> Optional[list[dict]]:
-    """Fallback-Endpunkt: /data/timeseries"""
-    username, password = parse_api_key(api_key)
-    endpoint = f"{GENESIS_BASE_URL}/data/timeseries"
-    params = {
-        "username":  username,
-        "password":  password,
+def fetch_genesis_timeseries(credentials: tuple[str, Optional[str]], year: int) \
+        -> Optional[list[dict]]:
+    """Fallback-Endpunkt: POST /data/timeseries"""
+    endpoint = f"{GENESIS_BASE}/data/timeseries"
+    body = {
         "name":      GENESIS_TABLE,
         "area":      "all",
+        "compress":  "false",
+        "transpose": "false",
         "startyear": str(year),
         "endyear":   str(year),
         "language":  "de",
-        "format":    "json",
+        "job":       "false",
     }
-    log.info(f"GENESIS /data/timeseries  Benutzer={username}  Jahr={year}")
+    log.info(f"GENESIS /data/timeseries  Jahr={year}")
     try:
-        return parse_genesis_response(_get(endpoint, params), year)
+        raw = _post(endpoint, credentials, body)
+        if not check_genesis_status(raw, "data/timeseries"):
+            return None
+        content = raw.get("Object", {}).get("Content", "")
+        if not content:
+            log.warning("Object.Content ist leer (timeseries).")
+            return None
+        return parse_genesis_csv(content, year)
     except Exception as exc:
         log.warning(f"/data/timeseries Fehler: {exc}")
         return None
 
 
-def fetch_year(api_key: str, year: int) -> Optional[list[dict]]:
+def logincheck(credentials: tuple[str, Optional[str]]) -> bool:
+    """Testet die Verbindung und Credentials gegen GENESIS."""
+    endpoint = f"{GENESIS_BASE}/helloworld/logincheck"
+    body = {"language": "de"}
+    log.info("Teste Verbindung (logincheck) …")
+    try:
+        raw = _post(endpoint, credentials, body, timeout=15)
+        status = raw.get("Status", raw)
+        msg = status.get("Status", status.get("Content", str(raw)))
+        log.info(f"logincheck: {msg}")
+        return True
+    except Exception as exc:
+        log.error(f"logincheck fehlgeschlagen: {exc}")
+        return False
+
+
+def fetch_year(credentials: tuple[str, Optional[str]], year: int) \
+        -> Optional[list[dict]]:
     """Versucht beide Endpunkte; gibt None zurück wenn beide fehlschlagen."""
-    data = fetch_genesis_table(api_key, year)
+    data = fetch_genesis_table(credentials, year)
     if not data:
-        log.info("Primärer Endpunkt lieferte keine Daten, versuche Zeitreihen-Endpunkt …")
-        data = fetch_genesis_timeseries(api_key, year)
+        log.info("Primärer Endpunkt lieferte keine Daten, versuche timeseries …")
+        data = fetch_genesis_timeseries(credentials, year)
     return data
 
 
-def get_latest_year_with_data(api_key: str) -> tuple[int, list[dict]]:
+def get_latest_year_with_data(credentials: tuple[str, Optional[str]]) \
+        -> tuple[int, list[dict]]:
     """
     Probiert das aktuelle und die beiden Vorjahre durch.
-    Gibt (year, data) zurück oder beendet das Programm mit Fehler.
+    Gibt (year, data) zurück oder beendet das Programm mit Exit-Code 1.
     """
     current = datetime.now().year
     for year in range(current, current - 3, -1):
-        log.info(f"Prüfe Jahr {year} …")
-        data = fetch_year(api_key, year)
+        log.info(f"Prüfe verfügbare Daten für {year} …")
+        data = fetch_year(credentials, year)
         if data:
-            log.info(f"✔ Aktuellstes verfügbares Jahr: {year}")
+            log.info(f"✔ Aktuellstes verfügbares Jahr mit Daten: {year}")
             return year, data
-    log.error("Keine GENESIS-Daten für die letzten 3 Jahre gefunden. Abbruch.")
+    log.error("Keine Daten für die letzten 3 Jahre gefunden. Abbruch.")
     sys.exit(1)
 
 
@@ -271,7 +371,7 @@ def write_output(payload: dict, path: Path) -> None:
 # ─── CLI ─────────────────────────────────────────────────────────────────────
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Steuerspirale – Datenabruf von GENESIS-Online",
+        description="Steuerspirale – Datenabruf von GENESIS-Online (POST-API v5.1)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Beispiele:
@@ -281,98 +381,90 @@ Beispiele:
   python fetch_data.py --year 2023
       → GENESIS-Daten 2023 → data.json + data_2023.json
 
-  python fetch_data.py --year latest
-      → identisch zu ohne --year (auto-detect)
-
-  python fetch_data.py --api-key KENNUNG:PASSWORT --year 2022
-      → Key per Argument statt Umgebungsvariable
+  python fetch_data.py --check
+      → nur logincheck (Verbindung + Token testen)
 
   python fetch_data.py --mock
-      → nur Entwicklung: Mock-Daten ohne API-Key
+      → (nur Entwicklung) Mock-Daten ohne API-Key
 
 Umgebungsvariablen:
-  mein_genesis_key   API-Key im Format KENNUNG:PASSWORT
+  mein_genesis_key   Token (32 Zeichen) ODER KENNUNG:PASSWORT
         """
     )
-    parser.add_argument(
-        "--year", type=str, default="latest",
-        help="Berichtsjahr oder 'latest' für auto-detect (Standard: latest)"
-    )
-    parser.add_argument(
-        "--api-key", type=str, default=None,
-        help="GENESIS-API-Key (KENNUNG:PASSWORT). Alternativ: Env-Var mein_genesis_key"
-    )
-    parser.add_argument(
-        "--output", type=str, default="data.json",
-        help="Primäre Ausgabedatei (Standard: data.json)"
-    )
-    parser.add_argument(
-        "--mock", action="store_true",
-        help="(Nur Entwicklung) Mock-Daten ohne API-Key verwenden"
-    )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true",
-        help="Ausführliche Debug-Ausgabe"
-    )
+    parser.add_argument("--year",    type=str, default="latest",
+                        help="Berichtsjahr oder 'latest' (Standard: latest)")
+    parser.add_argument("--api-key", type=str, default=None,
+                        help="Key per Argument statt Env-Var")
+    parser.add_argument("--output",  type=str, default="data.json",
+                        help="Primäre Ausgabedatei (Standard: data.json)")
+    parser.add_argument("--mock",    action="store_true",
+                        help="(Nur Entwicklung) Mock-Daten ohne API-Key")
+    parser.add_argument("--check",   action="store_true",
+                        help="Nur logincheck durchführen, keine Daten abrufen")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Debug-Ausgabe")
     args = parser.parse_args()
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
     output     = Path(args.output)
-    api_key    = args.api_key or os.getenv("mein_genesis_key")
+    raw_key    = args.api_key or os.getenv("mein_genesis_key")
     force_mock = args.mock
 
     log.info("═" * 60)
-    log.info("  STEUERSPIRALE — Datenabruf-Service")
+    log.info("  STEUERSPIRALE — Datenabruf-Service (GENESIS API v5.1)")
     log.info("═" * 60)
 
     # ── Mock-Modus (nur für lokale Entwicklung) ───────────────────────
     if force_mock:
-        log.warning("ACHTUNG: Mock-Modus aktiv — keine echten GENESIS-Daten!")
+        log.warning("ACHTUNG: Mock-Modus — keine echten GENESIS-Daten!")
         year    = int(args.year) if args.year != "latest" else 2024
-        data    = MOCK_DATA_2024
-        source  = "mock"
-        payload = build_output(data, year, source)
+        payload = build_output(MOCK_DATA_2024, year, "mock")
         write_output(payload, output)
-        year_path = output.parent / f"data_{year}.json"
-        write_output(payload, year_path)
-        log.info("─" * 60)
-        log.info(f"  [MOCK] Jahr={year}  Einträge={len(payload['data'])}  "
-                 f"Gesamt={payload['total']:,.1f} Mio. €")
+        write_output(payload, output.parent / f"data_{year}.json")
+        log.info(f"[MOCK] {len(payload['data'])} Einträge, {payload['total']:,.1f} Mio. €")
         return 0
 
     # ── Produktions-Modus: API-Key erforderlich ───────────────────────
-    if not api_key:
+    if not raw_key:
         log.error("Kein API-Key gefunden!")
-        log.error("Setze die Umgebungsvariable:  mein_genesis_key=KENNUNG:PASSWORT")
-        log.error("Oder übergib:                 --api-key KENNUNG:PASSWORT")
-        log.error("Für lokale Tests ohne Key:    --mock")
+        log.error("  Umgebungsvariable setzen:  mein_genesis_key=<IHR_TOKEN>")
+        log.error("  Oder per Argument:          --api-key <IHR_TOKEN>")
+        log.error("  Für lokale Tests:           --mock")
         sys.exit(1)
+
+    credentials = parse_credentials(raw_key)
+
+    # ── Nur Verbindungstest ───────────────────────────────────────────
+    if args.check:
+        ok = logincheck(credentials)
+        sys.exit(0 if ok else 1)
+
+    # ── Logincheck vorab (gibt frühzeitig Feedback bei falschen Credentials)
+    logincheck(credentials)
 
     # ── Jahres-Auflösung ──────────────────────────────────────────────
     if args.year == "latest":
-        year, data = get_latest_year_with_data(api_key)
+        year, data = get_latest_year_with_data(credentials)
     else:
         year = int(args.year)
-        data = fetch_year(api_key, year)
+        data = fetch_year(credentials, year)
         if not data:
-            log.error(f"Keine Daten für Jahr {year} von GENESIS erhalten. Abbruch.")
+            log.error(f"Keine Daten für Jahr {year} erhalten. Abbruch.")
             sys.exit(1)
 
-    source  = "genesis"
-    payload = build_output(data, year, source)
+    payload = build_output(data, year, "genesis")
 
     # ── Dateien schreiben ─────────────────────────────────────────────
     write_output(payload, output)                                      # data.json
-    year_path = output.parent / f"data_{year}.json"
-    write_output(payload, year_path)                                   # data_2024.json
+    write_output(payload, output.parent / f"data_{year}.json")        # data_2024.json
 
     log.info("─" * 60)
     log.info(f"  Jahr:        {year}")
     log.info(f"  Steuerarten: {len(payload['data'])}")
     log.info(f"  Gesamt:      {payload['total']:,.1f} Mio. €")
-    log.info(f"  Quelle:      {source.upper()}")
+    log.info(f"  Quelle:      GENESIS-API")
     log.info(f"  Zeitstempel: {payload['timestamp']}")
     log.info("─" * 60)
     log.info("✔ Fertig.")
