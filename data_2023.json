@@ -1,160 +1,156 @@
 {
-  "year": 2024,
+  "year": 2023,
   "source": "genesis",
-  "timestamp": "2026-05-04T22:01:12",
-  "total": 947707.0,
+  "timestamp": "2026-05-04T22:01:04",
+  "total": 915750.8,
   "data": [
     {
       "name": "Lohnsteuer",
-      "value": 248920.4
+      "value": 236227.5
     },
     {
       "name": "Umsatzsteuer",
-      "value": 228650.5
-    },
-    {
-      "name": "Gewerbesteuer (brutto)",
-      "value": 75293.5
-    },
-    {
-      "name": "Veranlagte Einkommensteuer",
-      "value": 74844.8
+      "value": 212596.0
     },
     {
       "name": "Einfuhrumsatzsteuer",
-      "value": 73492.8
+      "value": 78797.9
+    },
+    {
+      "name": "Gewerbesteuer (brutto)",
+      "value": 75122.1
+    },
+    {
+      "name": "Veranlagte Einkommensteuer",
+      "value": 73388.4
     },
     {
       "name": "Körperschaftsteuer",
-      "value": 39757.6
+      "value": 44851.6
     },
     {
       "name": "Energiesteuer",
-      "value": 35087.0
+      "value": 36658.3
     },
     {
       "name": "Nicht veranlagte Steuern vom Ertrag",
-      "value": 34022.8
-    },
-    {
-      "name": "Abgeltungssteuer",
-      "value": 19267.1
+      "value": 36441.7
     },
     {
       "name": "Versicherungsteuer",
-      "value": 18227.3
+      "value": 16850.7
     },
     {
       "name": "Grundsteuer B",
-      "value": 15638.2
+      "value": 15075.9
     },
     {
       "name": "Tabaksteuer",
-      "value": 15637.4
-    },
-    {
-      "name": "Grunderwerbsteuer",
-      "value": 12749.7
+      "value": 14671.8
     },
     {
       "name": "Solidaritätszuschlag",
-      "value": 12634.3
+      "value": 12239.1
     },
     {
-      "name": "Erbschaftsteuer",
-      "value": 9990.4
+      "name": "Grunderwerbsteuer",
+      "value": 12203.3
     },
     {
       "name": "Kraftfahrzeugsteuer (Bund)",
-      "value": 9667.3
+      "value": 9514.3
     },
     {
-      "name": "Zölle",
-      "value": 5463.2
+      "name": "Erbschaftsteuer",
+      "value": 9285.9
+    },
+    {
+      "name": "Abgeltungssteuer",
+      "value": 8361.6
     },
     {
       "name": "Stromsteuer",
-      "value": 5153.4
+      "value": 6831.9
+    },
+    {
+      "name": "Zölle",
+      "value": 5733.7
     },
     {
       "name": "Alkoholsteuer",
-      "value": 1979.6
-    },
-    {
-      "name": "EU-Energiekrisenbeitrag",
-      "value": 1936.2
-    },
-    {
-      "name": "Luftverkehrsteuer",
-      "value": 1832.6
+      "value": 2159.0
     },
     {
       "name": "Lotteriesteuer",
-      "value": 1806.8
+      "value": 1766.3
+    },
+    {
+      "name": "Luftverkehrsteuer",
+      "value": 1485.5
     },
     {
       "name": "Kaffeesteuer",
-      "value": 992.3
+      "value": 1030.2
     },
     {
       "name": "Sonstige Vergnügungsteuer",
-      "value": 900.3
+      "value": 873.2
     },
     {
       "name": "Feuerschutzsteuer",
-      "value": 724.5
+      "value": 653.8
     },
     {
       "name": "Biersteuer",
-      "value": 558.3
+      "value": 579.6
     },
     {
       "name": "Hundesteuer",
-      "value": 429.9
+      "value": 420.6
     },
     {
       "name": "Grundsteuer A",
-      "value": 428.3
+      "value": 417.0
     },
     {
       "name": "Sportwettsteuer",
-      "value": 423.3
+      "value": 409.1
     },
     {
       "name": "Schaumweinsteuer",
-      "value": 352.0
-    },
-    {
-      "name": "Zweitwohnungsteuer",
-      "value": 281.9
-    },
-    {
-      "name": "Sonstige Steuern",
-      "value": 271.5
+      "value": 361.0
     },
     {
       "name": "Virtuelle Automatensteuer",
-      "value": 213.5
+      "value": 264.4
+    },
+    {
+      "name": "Zweitwohnungsteuer",
+      "value": 242.2
+    },
+    {
+      "name": "Sonstige Steuern",
+      "value": 165.1
     },
     {
       "name": "Online-Pokersteuer",
-      "value": 35.5
+      "value": 30.5
     },
     {
       "name": "Zwischenerzeugnissteuer",
-      "value": 25.5
+      "value": 24.0
     },
     {
       "name": "Jagd- und Fischereisteuer",
-      "value": 6.9
+      "value": 7.1
     },
     {
       "name": "Totalisatorsteuer",
-      "value": 5.7
+      "value": 6.0
     },
     {
       "name": "Pauschalierte Eingangsabgaben",
-      "value": 2.2
+      "value": 2.0
     },
     {
       "name": "Alcopopsteuer",

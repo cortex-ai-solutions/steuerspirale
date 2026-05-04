@@ -837,59 +837,90 @@ function renderSpiral() {
     .attr('r', d => rScale(d.value));
 
   // ── Beschriftungen + Werte ──────────────────────────────
+  // Schwellwerte (relativ zu maxR, passt sich Fenstergröße an)
+  const THRESH_LARGE = maxR * 0.52;  // Name + Wert INNEN (zweizeilig)
+  const THRESH_MID   = maxR * 0.30;  // Wert INNEN, Name außen
+
   const gLabels = svg.append('g').attr('class', 'g-labels');
 
   data.forEach((d, i) => {
     const r        = rScale(d.value);
     const animRank = sortedForAnim.indexOf(d);
 
-    let showName = false;
-    if      (state.labelMode === 'all')   showName = true;
-    else if (state.labelMode === 'top10') showName = i < 10;
-    else if (state.labelMode === 'none')  showName = false;
-    else showName = true; // auto: alle 28 beschriften
+    let showLabel = false;
+    if      (state.labelMode === 'all')   showLabel = true;
+    else if (state.labelMode === 'top10') showLabel = i < 10;
+    else if (state.labelMode === 'none')  showLabel = false;
+    else showLabel = true; // auto: alle 28
 
-    if (!showName) return;
+    if (!showLabel) return;
 
-    // Richtungsvektor vom Zentrum zum Kreis
+    // Richtungsvektor für Außen-Labels
     const dx  = d.sx - cx, dy = d.sy - cy;
     const len = Math.hypot(dx, dy) || 1;
     const ux  = dx / len, uy = dy / len;
-
-    // Ankerpunkt direkt am Kreisrand
     const GAP = 8;
     const lx  = d.sx + ux * (r + GAP);
     const ly  = d.sy + uy * (r + GAP);
-
-    // Textausrichtung horizontal
     const anchor = ux > 0.25 ? 'start' : ux < -0.25 ? 'end' : 'middle';
+    const shortNameOut = d.name.length > 22 ? d.name.slice(0, 20) + '…' : d.name;
 
-    // Vertikale Stapelposition: Name + Wert zentriert auf ly
-    const nameY = ly - 7;
-    const valY  = ly + 8;
+    if (r >= THRESH_LARGE) {
+      // ── GROSS: Name + Wert INNEN (zweizeilig, weiß) ──────
+      const shortNameIn = d.name.length > 18 ? d.name.slice(0, 16) + '…' : d.name;
+      gLabels.append('text')
+        .attr('class', 'tax-label tax-label-lg')
+        .attr('x', d.sx).attr('y', d.sy - 9)
+        .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+        .attr('fill', 'rgba(255,255,255,0.95)')
+        .attr('opacity', 0)
+        .text(shortNameIn)
+        .transition().delay(animRank * 55 + 500).duration(300).attr('opacity', 0.95);
 
-    const shortName = d.name.length > 22 ? d.name.slice(0, 20) + '…' : d.name;
-    const isLarge   = r >= maxR * 0.45;
+      gLabels.append('text')
+        .attr('class', 'value-label-inner')
+        .attr('x', d.sx).attr('y', d.sy + 9)
+        .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+        .attr('opacity', 0)
+        .text(FMT_MIO(d.value))
+        .transition().delay(animRank * 55 + 500).duration(300).attr('opacity', 1);
 
-    // Name direkt neben Kreis
-    gLabels.append('text')
-      .attr('class', isLarge ? 'tax-label tax-label-lg' : 'tax-label')
-      .attr('x', lx).attr('y', nameY)
-      .attr('text-anchor', anchor).attr('dominant-baseline', 'middle')
-      .attr('opacity', 0)
-      .text(shortName)
-      .transition().delay(animRank * 55 + 500).duration(300)
-      .attr('opacity', isLarge ? 0.92 : 0.78);
+    } else if (r >= THRESH_MID) {
+      // ── MITTEL: Wert INNEN, Name außen ───────────────────
+      gLabels.append('text')
+        .attr('class', 'value-label-inner value-label-inner-sm')
+        .attr('x', d.sx).attr('y', d.sy)
+        .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+        .attr('opacity', 0)
+        .text(FMT_MIO(d.value))
+        .transition().delay(animRank * 55 + 500).duration(300).attr('opacity', 1);
 
-    // Wert direkt darunter
-    gLabels.append('text')
-      .attr('class', 'value-label-outer')
-      .attr('x', lx).attr('y', valY)
-      .attr('text-anchor', anchor).attr('dominant-baseline', 'middle')
-      .attr('opacity', 0)
-      .text(FMT_MIO(d.value) + ' Mio. €')
-      .transition().delay(animRank * 55 + 600).duration(300)
-      .attr('opacity', 0.88);
+      gLabels.append('text')
+        .attr('class', 'tax-label')
+        .attr('x', lx).attr('y', ly)
+        .attr('text-anchor', anchor).attr('dominant-baseline', 'middle')
+        .attr('opacity', 0)
+        .text(shortNameOut)
+        .transition().delay(animRank * 55 + 500).duration(300).attr('opacity', 0.80);
+
+    } else {
+      // ── KLEIN: Name + Wert außen ──────────────────────────
+      gLabels.append('text')
+        .attr('class', 'tax-label')
+        .attr('x', lx).attr('y', ly - 7)
+        .attr('text-anchor', anchor).attr('dominant-baseline', 'middle')
+        .attr('opacity', 0)
+        .text(shortNameOut)
+        .transition().delay(animRank * 55 + 500).duration(300).attr('opacity', 0.78);
+
+      gLabels.append('text')
+        .attr('class', 'value-label-outer')
+        .attr('x', lx).attr('y', ly + 8)
+        .attr('text-anchor', anchor).attr('dominant-baseline', 'middle')
+        .attr('opacity', 0)
+        .text(FMT_MIO(d.value) + ' Mio. €')
+        .transition().delay(animRank * 55 + 600).duration(300).attr('opacity', 0.88);
+    }
   });
 }
 
