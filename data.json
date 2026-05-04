@@ -1,0 +1,172 @@
+{
+  "year": 2025,
+  "source": "genesis",
+  "timestamp": "2026-05-04T21:34:03",
+  "total": 989827.0,
+  "data": [
+    {
+      "name": "Lohnsteuer",
+      "value": 262688.4
+    },
+    {
+      "name": "Umsatzsteuer",
+      "value": 236266.7
+    },
+    {
+      "name": "Veranlagte Einkommensteuer",
+      "value": 78361.6
+    },
+    {
+      "name": "Gewerbesteuer (brutto)",
+      "value": 76444.4
+    },
+    {
+      "name": "Einfuhrumsatzsteuer",
+      "value": 73939.2
+    },
+    {
+      "name": "Körperschaftsteuer",
+      "value": 39164.2
+    },
+    {
+      "name": "Energiesteuer",
+      "value": 37563.1
+    },
+    {
+      "name": "Nicht veranlagte Steuern vom Ertrag",
+      "value": 31118.1
+    },
+    {
+      "name": "Abgeltungssteuer",
+      "value": 24800.9
+    },
+    {
+      "name": "Versicherungsteuer",
+      "value": 19611.3
+    },
+    {
+      "name": "Tabaksteuer",
+      "value": 17631.9
+    },
+    {
+      "name": "Grundsteuer B",
+      "value": 15741.6
+    },
+    {
+      "name": "Erbschaftsteuer",
+      "value": 15412.4
+    },
+    {
+      "name": "Grunderwerbsteuer",
+      "value": 15097.0
+    },
+    {
+      "name": "Solidaritätszuschlag",
+      "value": 12878.0
+    },
+    {
+      "name": "Kraftfahrzeugsteuer (Bund)",
+      "value": 9598.5
+    },
+    {
+      "name": "Zölle",
+      "value": 5859.7
+    },
+    {
+      "name": "Stromsteuer",
+      "value": 5855.8
+    },
+    {
+      "name": "Luftverkehrsteuer",
+      "value": 2062.6
+    },
+    {
+      "name": "Alkoholsteuer",
+      "value": 2050.5
+    },
+    {
+      "name": "Lotteriesteuer",
+      "value": 1789.0
+    },
+    {
+      "name": "Kaffeesteuer",
+      "value": 1037.9
+    },
+    {
+      "name": "Sonstige Vergnügungsteuer",
+      "value": 897.0
+    },
+    {
+      "name": "Feuerschutzsteuer",
+      "value": 773.0
+    },
+    {
+      "name": "Biersteuer",
+      "value": 539.7
+    },
+    {
+      "name": "Hundesteuer",
+      "value": 429.7
+    },
+    {
+      "name": "Sportwettsteuer",
+      "value": 419.5
+    },
+    {
+      "name": "Sonstige Steuern",
+      "value": 378.1
+    },
+    {
+      "name": "Schaumweinsteuer",
+      "value": 364.6
+    },
+    {
+      "name": "Grundsteuer A",
+      "value": 344.4
+    },
+    {
+      "name": "Zweitwohnungsteuer",
+      "value": 283.7
+    },
+    {
+      "name": "Virtuelle Automatensteuer",
+      "value": 214.6
+    },
+    {
+      "name": "EU-Energiekrisenbeitrag",
+      "value": 133.8
+    },
+    {
+      "name": "Online-Pokersteuer",
+      "value": 33.0
+    },
+    {
+      "name": "Zwischenerzeugnissteuer",
+      "value": 23.0
+    },
+    {
+      "name": "Jagd- und Fischereisteuer",
+      "value": 6.4
+    },
+    {
+      "name": "Totalisatorsteuer",
+      "value": 5.7
+    },
+    {
+      "name": "Grundsteuer C",
+      "value": 4.9
+    },
+    {
+      "name": "Pauschalierte Eingangsabgaben",
+      "value": 2.2
+    },
+    {
+      "name": "Andere Rennwettsteuer",
+      "value": 0.7
+    },
+    {
+      "name": "Schankerlaubnissteuer",
+      "value": 0.2
+    }
+  ]
+}

@@ -110,6 +110,23 @@ _CSV_SKIP_PREFIXES = (
     "kassenmäßige", "tabelle", "__________", "steuereinnahmen",
 )
 
+# Aggregat-Kategorien aus der GENESIS-Tabelle 71211-0001
+# (Summenzeilen, die Einzelsteuern bereits enthalten → Doppelzählung vermeiden)
+_AGGREGATE_NAMES = {
+    "gemeinschaftsteuern",
+    "bundessteuern",
+    "landessteuern",
+    "gemeindesteuern",
+    "ländersteuern",
+    "eu-steuern",
+    "steuern insgesamt",
+    "steuern vom einkommen",
+    "steuern vom umsatz",
+    "steuern vom vermögen",
+    "verbrauchsteuern",
+    "zölle und abschöpfungen",
+}
+
 
 def parse_credentials(key_str: str) -> tuple[str, Optional[str]]:
     """
@@ -193,6 +210,11 @@ def parse_genesis_csv(content: str, year: int) -> Optional[list[dict]]:
 
         # Sonderzeichen / Kennzeichen überspringen
         if name.lower() in ("", "-", "x", ".", "/") or name.startswith("_"):
+            continue
+
+        # Aggregat-Kategorien überspringen (enthalten Einzelsteuern bereits)
+        if name.lower() in _AGGREGATE_NAMES:
+            log.debug(f"Aggregat übersprungen: {name}")
             continue
 
         # Numerischen Wert suchen (letzte nicht-leere Spalte)
@@ -305,18 +327,43 @@ def fetch_genesis_timeseries(credentials: tuple[str, Optional[str]], year: int) 
 
 
 def logincheck(credentials: tuple[str, Optional[str]]) -> bool:
-    """Testet die Verbindung und Credentials gegen GENESIS."""
+    """
+    Testet Verbindung und Credentials gegen GENESIS.
+    logincheck-Antwort hat ein eigenes Format:
+      {"Status": "Sie wurden erfolgreich an- und abgemeldet!", "Username": "..."}
+    """
     endpoint = f"{GENESIS_BASE}/helloworld/logincheck"
     body = {"language": "de"}
     log.info("Teste Verbindung (logincheck) …")
     try:
         raw = _post(endpoint, credentials, body, timeout=15)
-        status = raw.get("Status", raw)
-        msg = status.get("Status", status.get("Content", str(raw)))
-        log.info(f"logincheck: {msg}")
-        return True
+        log.debug(f"logincheck raw: {raw}")
+
+        if not isinstance(raw, dict):
+            log.warning(f"Unerwartete Antwort: {raw!r}")
+            return False
+
+        # Erfolgsformat: {"Status": "Sie wurden erfolgreich...", "Username": "..."}
+        status_val = raw.get("Status", "")
+        username   = raw.get("Username", "")
+        if username or (isinstance(status_val, str) and "erfolgreich" in status_val.lower()):
+            log.info(f"✔ Login OK — Benutzer: {username}")
+            return True
+
+        # Fehlerformat: {"Status": {"Code": N, "Content": "..."}}
+        if isinstance(status_val, dict):
+            code = status_val.get("Code", -1)
+            msg  = status_val.get("Content", str(status_val))
+            if code == 0:
+                log.info(f"✔ Login OK: {msg}")
+                return True
+            log.error(f"Login fehlgeschlagen (Code {code}): {msg}")
+            return False
+
+        log.warning(f"Unbekannte Antwort: {raw}")
+        return False
     except Exception as exc:
-        log.error(f"logincheck fehlgeschlagen: {exc}")
+        log.error(f"logincheck Fehler: {exc}")
         return False
 
 
