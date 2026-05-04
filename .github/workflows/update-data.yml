@@ -1,0 +1,54 @@
+name: Update Steuerspirale Data
+
+on:
+  schedule:
+    # Jeden 1. des Monats um 05:00 UTC  (neue Destatis-Daten kommen meist quartalsweise)
+    - cron: '0 5 1 * *'
+  workflow_dispatch:
+    # Manuell triggerbar — für OpenClaw-Bot via GitHub API:
+    #   POST /repos/{owner}/{repo}/actions/workflows/update-data.yml/dispatches
+    #   Authorization: Bearer {GITHUB_TOKEN}
+    #   Body: {"ref": "main"}
+    inputs:
+      year:
+        description: 'Jahr (leer = aktuellstes verfügbares)'
+        required: false
+        default: 'latest'
+
+jobs:
+  fetch-and-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # für git push
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Abhängigkeiten installieren
+        run: pip install requests
+
+      - name: Steuerdaten von GENESIS abrufen
+        run: |
+          YEAR="${{ github.event.inputs.year || 'latest' }}"
+          echo "Rufe Daten für Jahr: $YEAR ab"
+          python fetch_data.py --year "$YEAR" --output data.json
+        env:
+          mein_genesis_key: ${{ secrets.MEIN_GENESIS_KEY }}
+
+      - name: data.json committen und pushen
+        run: |
+          git config user.name  "steuerspirale-bot"
+          git config user.email "bot@noreply.github.com"
+          git add data*.json
+          if git diff --cached --quiet; then
+            echo "Keine Änderungen an den Daten — kein Commit nötig."
+          else
+            git commit -m "data: Steuereinnahmen aktualisiert $(date -u +%Y-%m-%d)"
+            git push
+          fi

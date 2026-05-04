@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Steuerspirale — Bundesministerium der Finanzen</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── RESET & TOKENS ────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bmf:        #b31d68;
+      --bmf-dk:     #7a1047;
+      --bmf-md:     #cc3380;
+      --bmf-lt:     #e06094;
+      --bmf-pale:   #fdf0f6;
+      --navy:       #141426;
+      --navy-lt:    #1e1e38;
+      --text:       #252536;
+      --text-muted: #6b6b80;
+      --border:     #e4dde4;
+      --canvas-bg:  #f9f4f7;
+      --white:      #fffcfe;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: var(--canvas-bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ────────────────────────────────────────── */
+    .site-header { background: var(--navy); flex-shrink: 0; }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      padding: 14px 28px;
+      border-bottom: 3px solid var(--bmf);
+      gap: 18px;
+    }
+
+    .logo-block { display: flex; align-items: center; gap: 11px; flex-shrink: 0; }
+
+    .logo-mark {
+      width: 46px; height: 46px;
+      background: var(--bmf);
+      border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px; font-weight: 600; letter-spacing: 0.5px;
+      color: white;
+    }
+
+    .logo-text {
+      font-size: 10.5px; font-weight: 300;
+      letter-spacing: 1.6px; text-transform: uppercase;
+      line-height: 1.5; color: rgba(255,255,255,0.75);
+    }
+    .logo-text strong {
+      display: block; font-weight: 500; font-size: 11.5px;
+      color: rgba(255,255,255,0.95); letter-spacing: 0.8px;
+    }
+
+    .hdr-sep { width: 1px; height: 44px; background: rgba(255,255,255,0.15); }
+
+    .page-title { flex: 1; color: white; }
+    .page-title h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.65rem; font-weight: 700;
+      letter-spacing: 0.3px; line-height: 1.15;
+    }
+    .page-title .sub {
+      font-size: 10.5px; font-weight: 300;
+      letter-spacing: 1.2px; text-transform: uppercase;
+      color: rgba(255,255,255,0.55); margin-top: 4px;
+    }
+
+    .header-kpi {
+      display: flex; gap: 0;
+      background: rgba(0,0,0,0.25);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+    }
+
+    .kpi {
+      padding: 10px 22px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .kpi-label {
+      font-size: 9px; text-transform: uppercase;
+      letter-spacing: 1.2px; color: rgba(255,255,255,0.45);
+    }
+    .kpi-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 15px; font-weight: 600; color: var(--bmf-lt);
+    }
+
+    .badge {
+      padding: 2px 8px; border-radius: 3px;
+      font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase;
+      font-weight: 600; border: 1px solid;
+    }
+    .badge-mock  { color: #ffbb55; border-color: #ffbb55; background: rgba(255,187,85,0.1); }
+    .badge-live  { color: #55cc88; border-color: #55cc88; background: rgba(85,204,136,0.1); }
+    .badge-error { color: #ff6655; border-color: #ff6655; background: rgba(255,102,85,0.1); }
+
+    /* ── CONTROLS BAR ──────────────────────────────────── */
+    .ctrl-bar {
+      display: flex; align-items: center; gap: 16px;
+      padding: 9px 24px;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0; flex-wrap: wrap;
+    }
+
+    .ctrl-group { display: flex; align-items: center; gap: 7px; }
+    .ctrl-label {
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.9px; color: var(--text-muted); font-weight: 500;
+    }
+
+    select {
+      border: 1px solid var(--border); border-radius: 3px;
+      padding: 4px 10px; font-size: 12px; background: var(--white);
+      font-family: 'IBM Plex Sans', sans-serif; color: var(--text);
+      cursor: pointer;
+    }
+    select:focus { outline: 2px solid var(--bmf); border-color: var(--bmf); }
+
+    .toggle-group { display: flex; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+    .toggle-btn {
+      padding: 4px 13px; font-size: 11px; cursor: pointer;
+      border: none; background: var(--white);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-weight: 500; letter-spacing: 0.3px;
+      color: var(--text-muted); transition: background 0.15s, color 0.15s;
+    }
+    .toggle-btn.active { background: var(--bmf); color: white; }
+    .toggle-btn:not(.active):hover { background: var(--bmf-pale); }
+
+    /* Spiralstart-Slider */
+    .spiral-start-wrap {
+      display: flex; align-items: center; gap: 6px;
+    }
+    #spiral-start {
+      width: 90px; accent-color: var(--bmf);
+      cursor: pointer;
+    }
+    #spiral-start-val {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px; color: var(--bmf);
+      min-width: 32px; text-align: right;
+    }
+
+    .ctrl-spacer { flex: 1; }
+
+    .refresh-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 16px; border: none; border-radius: 3px;
+      background: var(--bmf); color: white; cursor: pointer;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 10.5px; font-weight: 600;
+      letter-spacing: 0.9px; text-transform: uppercase;
+      transition: background 0.15s;
+    }
+    .refresh-btn:hover { background: var(--bmf-dk); }
+    .refresh-btn svg { animation: none; }
+    .refresh-btn.loading svg { animation: spin 0.8s linear infinite; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── MAIN LAYOUT ───────────────────────────────────── */
+    .main-area {
+      flex: 1; display: grid;
+      grid-template-columns: 1fr 250px;
+      min-height: 0;
+    }
+
+    /* ── SPIRAL CANVAS ─────────────────────────────────── */
+    .spiral-wrap {
+      position: relative; overflow: hidden;
+      background: var(--canvas-bg);
+    }
+
+    #spiral-svg { width: 100%; height: 100%; display: block; min-height: 560px; }
+
+    .spiral-path { fill: none; stroke: rgba(179,29,104,0.07); stroke-width: 1; }
+
+    .tax-circle {
+      cursor: pointer;
+      transition: filter 0.18s;
+    }
+    .tax-circle:hover {
+      filter: brightness(0.78) drop-shadow(0 4px 14px rgba(179,29,104,0.45));
+    }
+
+    .tax-label {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 10px; font-weight: 400;
+      fill: var(--text); pointer-events: none;
+    }
+    .tax-label-lg {
+      font-size: 11px; font-weight: 500;
+    }
+
+    /* Wert-Beschriftungen */
+    .value-label-inner {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px; font-weight: 600;
+      fill: rgba(255,255,255,0.92);
+      pointer-events: none;
+    }
+    .value-label-inner-sm {
+      font-size: 8px;
+    }
+    .value-label-outer {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 8.5px;
+      fill: var(--bmf);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    /* ── LOADING OVERLAY ───────────────────────────────── */
+    .loading-overlay {
+      position: absolute; inset: 0;
+      background: var(--canvas-bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 14px; z-index: 20;
+      transition: opacity 0.3s;
+    }
+    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--bmf);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    .loading-text { font-size: 11px; color: var(--text-muted); letter-spacing: 0.8px; }
+
+    /* ── ERROR STATE ───────────────────────────────────── */
+    .error-overlay {
+      position: absolute; inset: 0;
+      background: var(--canvas-bg);
+      display: none;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; z-index: 20; padding: 32px; text-align: center;
+    }
+    .error-overlay.visible { display: flex; }
+    .error-icon {
+      font-size: 32px; color: #cc4433;
+    }
+    .error-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px; color: var(--text);
+    }
+    .error-msg {
+      font-size: 12px; color: var(--text-muted);
+      max-width: 420px; line-height: 1.6;
+    }
+    .error-hint {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px; color: var(--bmf);
+      background: var(--bmf-pale);
+      padding: 8px 14px; border-radius: 4px;
+      max-width: 480px; word-break: break-all;
+    }
+
+    /* ── SIDEBAR ───────────────────────────────────────── */
+    .sidebar {
+      background: var(--white);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-hdr {
+      padding: 14px 16px 10px;
+      border-bottom: 2px solid var(--bmf);
+      flex-shrink: 0;
+    }
+    .sidebar-hdr h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 13.5px; font-weight: 700;
+      color: var(--text);
+    }
+    .sidebar-hdr .sidebar-sub {
+      font-size: 9.5px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.8px; margin-top: 3px;
+    }
+
+    .tax-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+
+    .tax-item {
+      display: flex; align-items: flex-start; gap: 7px;
+      padding: 7px 14px;
+      border-bottom: 1px solid #f3eef3;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .tax-item:hover { background: var(--bmf-pale); }
+
+    .tax-rank {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9.5px; color: var(--text-muted);
+      width: 17px; flex-shrink: 0; padding-top: 1px;
+    }
+
+    .tax-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 2px;
+    }
+
+    .tax-info { flex: 1; min-width: 0; }
+    .tax-name {
+      font-size: 11px; line-height: 1.35;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tax-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px; color: var(--bmf); font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .tax-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-top: 4px; }
+    .tax-bar-fill { height: 100%; border-radius: 2px; background: var(--bmf); }
+
+    /* ── TOOLTIP ───────────────────────────────────────── */
+    #tooltip {
+      position: fixed;
+      background: var(--navy-lt);
+      color: white; padding: 14px 18px;
+      border-radius: 7px; border-left: 3px solid var(--bmf);
+      pointer-events: none; opacity: 0;
+      transition: opacity 0.14s;
+      z-index: 9999; min-width: 215px;
+      box-shadow: 0 8px 36px rgba(0,0,0,0.35);
+    }
+    #tooltip.show { opacity: 1; }
+
+    .tt-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 14px; font-weight: 700;
+      line-height: 1.3; margin-bottom: 10px;
+    }
+
+    .tt-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 5px; }
+    .tt-key { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.5); }
+    .tt-val {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px; font-weight: 600; color: var(--bmf-lt);
+    }
+    .tt-pct { font-family: 'IBM Plex Mono', monospace; font-size: 11px; opacity: 0.7; }
+
+    .tt-sep { height: 1px; background: rgba(255,255,255,0.1); margin: 9px 0; }
+
+    .tt-rank-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--bmf); border-radius: 3px;
+      padding: 2px 8px; font-size: 10px; letter-spacing: 0.5px;
+    }
+
+    /* ── FOOTER ────────────────────────────────────────── */
+    footer {
+      background: var(--navy);
+      color: rgba(255,255,255,0.4);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 28px; font-size: 9.5px; letter-spacing: 0.4px;
+      flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    footer a { color: var(--bmf-lt); text-decoration: none; }
+
+    /* ── RESPONSIVE ────────────────────────────────────── */
+    @media (max-width: 820px) {
+      .main-area { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .header-top { padding: 12px 16px; }
+      .header-kpi { gap: 0; }
+      .kpi { padding: 8px 14px; }
+      .ctrl-bar { padding: 8px 14px; }
+      .page-title h1 { font-size: 1.35rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════ -->
+<header class="site-header">
+  <div class="header-top">
+    <div class="logo-block">
+      <div class="logo-mark">BMF</div>
+      <div class="logo-text">
+        Bundesministerium<br>
+        <strong>der Finanzen</strong>
+      </div>
+    </div>
+    <div class="hdr-sep"></div>
+    <div class="page-title">
+      <h1>Steuerspirale</h1>
+      <div class="sub">Kassenmäßige Steuereinnahmen · Tabelle 71211-0001</div>
+    </div>
+  </div>
+
+  <div class="header-kpi">
+    <div class="kpi">
+      <span class="kpi-label">Berichtsjahr</span>
+      <span class="kpi-value" id="kpi-year">—</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Gesamteinnahmen</span>
+      <span class="kpi-value" id="kpi-total">—</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Steuerarten</span>
+      <span class="kpi-value" id="kpi-count">—</span>
+    </div>
+    <div class="kpi" style="border-right:none">
+      <span class="kpi-label">Datenquelle</span>
+      <span class="kpi-value">
+        <span class="badge badge-live" id="src-badge">GENESIS-API</span>
+      </span>
+    </div>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════
+     CONTROLS
+═══════════════════════════════════════════════════ -->
+<div class="ctrl-bar">
+  <div class="ctrl-group">
+    <span class="ctrl-label">Jahr</span>
+    <select id="year-sel" onchange="onYearChange(this.value)">
+      <option value="latest" selected>Aktuell</option>
+      <option value="2024">2024</option>
+      <option value="2023">2023</option>
+      <option value="2022">2022</option>
+      <option value="2021">2021</option>
+    </select>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Skalierung</span>
+    <div class="toggle-group" id="scale-toggle">
+      <button class="toggle-btn active" data-mode="sqrt"   onclick="setScaleMode('sqrt',   this)">Wurzel</button>
+      <button class="toggle-btn"        data-mode="log"    onclick="setScaleMode('log',    this)">Logarithmisch</button>
+      <button class="toggle-btn"        data-mode="linear" onclick="setScaleMode('linear', this)">Linear</button>
+    </div>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Beschriftung</span>
+    <div class="toggle-group">
+      <button class="toggle-btn active" data-lbl="auto"  onclick="setLabelMode('auto',  this)">Auto</button>
+      <button class="toggle-btn"        data-lbl="all"   onclick="setLabelMode('all',   this)">Alle</button>
+      <button class="toggle-btn"        data-lbl="top10" onclick="setLabelMode('top10', this)">Top 10</button>
+      <button class="toggle-btn"        data-lbl="none"  onclick="setLabelMode('none',  this)">Keine</button>
+    </div>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Spiralstart</span>
+    <div class="spiral-start-wrap">
+      <input type="range" id="spiral-start" min="0" max="359" value="0"
+             oninput="setSpiralStart(this.value)" />
+      <span id="spiral-start-val">0°</span>
+    </div>
+  </div>
+
+  <div class="ctrl-spacer"></div>
+
+  <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
+    Daten aktualisieren
+  </button>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     MAIN
+═══════════════════════════════════════════════════ -->
+<main class="main-area">
+
+  <!-- Spiral Canvas -->
+  <div class="spiral-wrap" id="spiral-wrap">
+    <div class="loading-overlay" id="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">Lade Steuerdaten von GENESIS …</div>
+    </div>
+    <div class="error-overlay" id="error-overlay">
+      <div class="error-icon">⚠</div>
+      <div class="error-title" id="error-title">Daten nicht verfügbar</div>
+      <div class="error-msg" id="error-msg"></div>
+      <div class="error-hint" id="error-hint"></div>
+    </div>
+    <svg id="spiral-svg"></svg>
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-hdr">
+      <h2>Steuerarten im Überblick</h2>
+      <div class="sidebar-sub">sortiert nach Einnahmevolumen</div>
+    </div>
+    <div class="tax-list" id="tax-list"></div>
+  </aside>
+
+</main>
+
+<!-- ════════════════════════════════════════════════
+     TOOLTIP
+═══════════════════════════════════════════════════ -->
+<div id="tooltip">
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-row">
+    <span class="tt-key">Steuereinnahmen</span>
+    <span class="tt-pct" id="tt-pct"></span>
+  </div>
+  <div class="tt-row">
+    <span class="tt-val" id="tt-val"></span>
+    <span class="tt-key">Mio. €</span>
+  </div>
+  <div class="tt-sep"></div>
+  <div class="tt-rank-badge" id="tt-rank"></div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════════ -->
+<footer>
+  <span>
+    Quelle: Statistisches Bundesamt (Destatis), GENESIS-Online, Tabelle 71211-0001 ·
+    Bundesministerium der Finanzen
+  </span>
+  <span>Visualisierung: D3.js v7 · <a href="fetch_data.py" download>Python-Skript ↓</a></span>
+</footer>
+
+
+<!-- ════════════════════════════════════════════════
+     SCRIPT
+═══════════════════════════════════════════════════ -->
+<script>
+/* ──────────────────────────────────────────────────────────────
+   DEUTSCHE ZAHLENFORMATIERUNG
+   d3.formatLocale für "302.143" (Punkt als Tausendertrenner, Komma als Dezimal)
+────────────────────────────────────────────────────────────── */
+const deLocale = d3.formatLocale({
+  decimal:  ",",
+  thousands: ".",
+  grouping: [3],
+  currency: ["", " €"],
+});
+const FMT_MIO  = deLocale.format(",.0f");   // "302.143"
+const FMT_PCT  = d3.format(".2f");          // "31.89"
+
+/* ──────────────────────────────────────────────────────────────
+   STATE
+────────────────────────────────────────────────────────────── */
+let state = {
+  data:        null,
+  scaleMode:   'sqrt',   // 'sqrt' | 'log' | 'linear'
+  labelMode:   'auto',   // 'auto' | 'all' | 'top10' | 'none'
+  spiralStart: 0,        // Grad, 0 = 12-Uhr-Position (wie BMF-Original)
+};
+
+/* ──────────────────────────────────────────────────────────────
+   DATEN LADEN
+   Reihenfolge: data_{year}.json → data.json → Fehler anzeigen
+   Kein Mock-Fallback in der Produktion.
+────────────────────────────────────────────────────────────── */
+async function loadData(requestedYear = null) {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('loading');
+  showLoading(true);
+  hideError();
+
+  const sel  = document.getElementById('year-sel');
+  const yearVal = requestedYear || sel.value;
+
+  // Bestimme zu ladende URLs
+  const isLatest = (yearVal === 'latest');
+  const candidates = isLatest
+    ? ['./data.json']
+    : [`./data_${yearVal}.json`, './data.json'];
+
+  let loaded = false;
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url + '?t=' + Date.now());
+      if (!res.ok) continue;
+      const json = await res.json();
+      // Bei jahresspezifischem Abruf: sicherstellen dass das Jahr stimmt
+      if (!isLatest && json.year !== parseInt(yearVal)) continue;
+      state.data = json;
+      loaded = true;
+      setBadge(json.source === 'mock' ? 'MOCK-DATEN' : 'GENESIS-API',
+               json.source === 'mock' ? 'mock'       : 'live');
+      break;
+    } catch (_) { /* nächste URL versuchen */ }
+  }
+
+  if (!loaded) {
+    showLoading(false);
+    btn.classList.remove('loading');
+    const label = isLatest ? 'aktuelle Daten' : `Jahr ${yearVal}`;
+    showError(
+      `Keine ${label} verfügbar`,
+      `Die Datei data${isLatest ? '' : '_' + yearVal}.json wurde nicht gefunden.\n` +
+      `Bitte fetch_data.py ausführen um die Daten zu aktualisieren.`,
+      `python fetch_data.py${isLatest ? '' : ' --year ' + yearVal}`
+    );
+    return;
+  }
+
+  // Absteigend nach Wert
+  state.data.data.sort((a, b) => b.value - a.value);
+
+  updateKPIs();
+  renderSidebar();
+  renderSpiral();
+  showLoading(false);
+  btn.classList.remove('loading');
+}
+
+function setBadge(text, type) {
+  const b = document.getElementById('src-badge');
+  b.textContent = text;
+  b.className = `badge badge-${type}`;
+}
+
+function updateKPIs() {
+  const d = state.data;
+  document.getElementById('kpi-year').textContent  = d.year;
+  document.getElementById('kpi-total').textContent = FMT_MIO(d.total) + ' Mio. €';
+  document.getElementById('kpi-count').textContent = d.data.length;
+}
+
+function showLoading(show) {
+  document.getElementById('loading').classList.toggle('hidden', !show);
+}
+
+function showError(title, msg, hint) {
+  document.getElementById('error-title').textContent = title;
+  document.getElementById('error-msg').textContent   = msg;
+  document.getElementById('error-hint').textContent  = hint || '';
+  document.getElementById('error-overlay').classList.add('visible');
+}
+
+function hideError() {
+  document.getElementById('error-overlay').classList.remove('visible');
+}
+
+/* ──────────────────────────────────────────────────────────────
+   CONTROLS
+────────────────────────────────────────────────────────────── */
+function onYearChange(year) {
+  loadData(year);
+}
+
+function setScaleMode(mode, btn) {
+  state.scaleMode = mode;
+  document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (state.data) renderSpiral();
+}
+
+function setLabelMode(mode, btn) {
+  state.labelMode = mode;
+  document.querySelectorAll('[data-lbl]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (state.data) renderSpiral();
+}
+
+function setSpiralStart(deg) {
+  state.spiralStart = parseInt(deg);
+  document.getElementById('spiral-start-val').textContent = deg + '°';
+  if (state.data) renderSpiral();
+}
+
+/* ──────────────────────────────────────────────────────────────
+   RADIUS SCALE FACTORY
+────────────────────────────────────────────────────────────── */
+function makeRadiusScale(values, maxR) {
+  const vMin = d3.min(values), vMax = d3.max(values);
+  const rMin = Math.max(5, maxR * 0.07);
+
+  if (state.scaleMode === 'log') {
+    return d3.scaleLog().domain([vMin, vMax]).range([rMin, maxR]);
+  } else if (state.scaleMode === 'linear') {
+    return d3.scaleLinear().domain([vMin, vMax]).range([rMin * 0.6, maxR]);
+  }
+  return d3.scaleSqrt().domain([vMin, vMax]).range([rMin, maxR]);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   ARCHIMEDEAN SPIRAL LAYOUT
+   r = b·θ  (Archimedisch)
+   Größte Werte starten im Zentrum (kleines θ = innen).
+   state.spiralStart rotiert die gesamte Spirale (in Grad, 0 = 12 Uhr).
+────────────────────────────────────────────────────────────── */
+function computeSpiralPositions(data, cx, cy, rScale) {
+  const startRad = (state.spiralStart * Math.PI) / 180;
+  const descending = [...data].sort((a, b) => b.value - a.value);
+  const b = Math.min(cx, cy) * 0.065;
+
+  let theta = 0.4;
+
+  descending.forEach((d, i) => {
+    const r_c = rScale(d.value);
+
+    if (i === 0) {
+      theta = Math.max(0.4, r_c / b);
+      const sr = b * theta;
+      d._sx = cx + sr * Math.sin(theta + startRad);
+      d._sy = cy - sr * Math.cos(theta + startRad);
+    } else {
+      const prev = descending[i - 1];
+      const r_p  = rScale(prev.value);
+      const minD = r_c + r_p + 4;
+
+      let sr = b * theta;
+      let estDTheta = minD / Math.max(sr, b);
+      theta += Math.max(0.12, estDTheta);
+
+      let iters = 0;
+      do {
+        sr = b * theta;
+        const x = cx + sr * Math.sin(theta + startRad);
+        const y = cy - sr * Math.cos(theta + startRad);
+        const dist = Math.hypot(x - prev._sx, y - prev._sy);
+        if (dist >= minD) break;
+        theta += 0.015;
+        iters++;
+      } while (iters < 200);
+
+      const sr2 = b * theta;
+      d._sx = cx + sr2 * Math.sin(theta + startRad);
+      d._sy = cy - sr2 * Math.cos(theta + startRad);
+    }
+  });
+
+  const posMap = new Map(descending.map(d => [d.name, { x: d._sx, y: d._sy }]));
+  data.forEach(d => {
+    const p = posMap.get(d.name);
+    d.sx = p.x;
+    d.sy = p.y;
+  });
+
+  return { b, thetaMax: theta, startRad };
+}
+
+/* ──────────────────────────────────────────────────────────────
+   RENDER SPIRAL
+────────────────────────────────────────────────────────────── */
+function renderSpiral() {
+  const wrap = document.getElementById('spiral-wrap');
+  const W    = wrap.clientWidth  || 800;
+  const H    = wrap.clientHeight || 580;
+  const cx   = W * 0.5;
+  const cy   = H * 0.5;
+
+  const svg = d3.select('#spiral-svg');
+  svg.selectAll('*').remove();
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+
+  const data  = state.data.data;
+  const total = state.data.total;
+
+  // ── Skalen ──────────────────────────────────────────────
+  const maxR    = Math.min(W, H) * 0.115;
+  const values  = data.map(d => d.value);
+  const rScale  = makeRadiusScale(values, maxR);
+  const opScale = d3.scaleSqrt()
+    .domain([d3.min(values), d3.max(values)])
+    .range([0.30, 1.0]);
+
+  // ── Layout ──────────────────────────────────────────────
+  const { b, thetaMax, startRad } = computeSpiralPositions(data, cx, cy, rScale);
+
+  // ── Spiral-Leitlinie ────────────────────────────────────
+  const spiralPts = [];
+  for (let t = 0; t <= thetaMax + 1; t += 0.04) {
+    const sr = b * t;
+    spiralPts.push([
+      cx + sr * Math.sin(t + startRad),
+      cy - sr * Math.cos(t + startRad),
+    ]);
+  }
+  svg.append('path')
+    .datum(spiralPts)
+    .attr('class', 'spiral-path')
+    .attr('d', d3.line().curve(d3.curveCatmullRom)(spiralPts));
+
+  // ── Kreise ──────────────────────────────────────────────
+  // Sortierung für Animation: größte Kreise zuerst
+  const sortedForAnim = [...data].sort((a, b) => b.value - a.value);
+
+  const gCircles = svg.append('g').attr('class', 'g-circles');
+
+  const circles = gCircles.selectAll('circle')
+    .data(data)
+    .join('circle')
+    .attr('class', 'tax-circle')
+    .attr('cx', d => d.sx)
+    .attr('cy', d => d.sy)
+    .attr('r', 0)
+    .attr('fill', d => `rgba(179,29,104,${opScale(d.value).toFixed(2)})`)
+    .attr('stroke', '#fffcfe')
+    .attr('stroke-width', d => rScale(d.value) > 25 ? 2 : 1.2)
+    .on('mousemove',  (event, d) => showTT(event, d, data, total))
+    .on('touchstart', (event, d) => { event.preventDefault(); showTT(event.touches[0], d, data, total); })
+    .on('mouseleave', hideTT)
+    .on('click',      (event, d) => showTT(event, d, data, total));
+
+  circles.transition()
+    .duration(700)
+    .delay((_, i) => sortedForAnim.indexOf(data[i]) * 55)
+    .ease(d3.easeBackOut.overshoot(1.15))
+    .attr('r', d => rScale(d.value));
+
+  // ── Beschriftungen + Werte ──────────────────────────────
+  const gLabels = svg.append('g').attr('class', 'g-labels');
+
+  data.forEach((d, i) => {
+    const r        = rScale(d.value);
+    const animRank = sortedForAnim.indexOf(d);
+
+    // Namenslabel sichtbar?
+    let showName = false;
+    if      (state.labelMode === 'all')   showName = true;
+    else if (state.labelMode === 'top10') showName = i < 10;
+    else if (state.labelMode === 'none')  showName = false;
+    else showName = r >= maxR * 0.28 || i < 8;
+
+    // Richtungsvektor vom Zentrum zum Kreis
+    const dx  = d.sx - cx, dy = d.sy - cy;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux  = dx / len, uy = dy / len;
+    const lx  = d.sx + ux * (r + 7);
+    const ly  = d.sy + uy * (r + 7);
+    const anchor = ux > 0.3 ? 'start' : ux < -0.3 ? 'end' : 'middle';
+
+    // ── Wert-Beschriftung INNERHALB des Kreises ──────────
+    if (r >= 22) {
+      const isLarge  = r > maxR * 0.45;
+      const valText  = FMT_MIO(d.value);
+
+      if (isLarge && showName) {
+        // Zweizeilig: Name oben, Wert unten
+        const shortName = d.name.length > 18 ? d.name.slice(0, 16) + '…' : d.name;
+        gLabels.append('text')
+          .attr('class', 'tax-label tax-label-lg')
+          .attr('x', d.sx).attr('y', d.sy - 9)
+          .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+          .attr('opacity', 0)
+          .attr('fill', 'rgba(255,255,255,0.95)')
+          .text(shortName)
+          .transition().delay(animRank * 55 + 500).duration(300).attr('opacity', 0.95);
+      }
+
+      // Wert innen (mittig oder nach unten versetzt wenn Name auch innen)
+      const yVal = (isLarge && showName) ? d.sy + 10 : d.sy;
+      gLabels.append('text')
+        .attr('class', r >= 30 ? 'value-label-inner' : 'value-label-inner value-label-inner-sm')
+        .attr('x', d.sx).attr('y', yVal)
+        .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+        .attr('opacity', 0)
+        .text(valText)
+        .transition().delay(animRank * 55 + 500).duration(300).attr('opacity', 1);
+
+    } else {
+      // Kreis zu klein für Innenbeschriftung → Name + Wert außen
+      if (showName) {
+        const shortName = d.name.length > 22 ? d.name.slice(0, 20) + '…' : d.name;
+        gLabels.append('text')
+          .attr('class', r > maxR * 0.45 ? 'tax-label tax-label-lg' : 'tax-label')
+          .attr('x', lx).attr('y', ly - 5)
+          .attr('text-anchor', anchor).attr('dominant-baseline', 'middle')
+          .attr('opacity', 0)
+          .text(shortName)
+          .transition().delay(animRank * 55 + 500).duration(300)
+          .attr('opacity', r > maxR * 0.45 ? 0.9 : 0.72);
+
+        // Wert als zweite Zeile außen
+        gLabels.append('text')
+          .attr('class', 'value-label-outer')
+          .attr('x', lx).attr('y', ly + 7)
+          .attr('text-anchor', anchor)
+          .attr('opacity', 0)
+          .text(FMT_MIO(d.value) + ' Mio. €')
+          .transition().delay(animRank * 55 + 600).duration(300).attr('opacity', 0.8);
+      }
+    }
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────
+   SIDEBAR
+────────────────────────────────────────────────────────────── */
+function renderSidebar() {
+  const list   = document.getElementById('tax-list');
+  const data   = state.data.data;
+  const total  = state.data.total;
+  const maxVal = data[0].value;
+  list.innerHTML = '';
+
+  data.forEach((d, i) => {
+    const pct     = FMT_PCT(d.value / total * 100);
+    const barW    = (d.value / maxVal * 100).toFixed(1);
+    const opacity = (0.30 + (1 - i / data.length) * 0.70).toFixed(2);
+
+    const el = document.createElement('div');
+    el.className = 'tax-item';
+    el.title     = `${d.name}: ${FMT_MIO(d.value)} Mio. € (${pct} %)`;
+    el.innerHTML = `
+      <span class="tax-rank">${i + 1}</span>
+      <span class="tax-dot" style="background:rgba(179,29,104,${opacity})"></span>
+      <div class="tax-info">
+        <div class="tax-name">${d.name}</div>
+        <div class="tax-num">${FMT_MIO(d.value)} <span style="font-size:9px;opacity:.6;font-weight:400">Mio. €</span></div>
+        <div class="tax-bar-wrap">
+          <div class="tax-bar-fill" style="width:${barW}%;opacity:${opacity}"></div>
+        </div>
+      </div>
+    `;
+    list.appendChild(el);
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────
+   TOOLTIP
+────────────────────────────────────────────────────────────── */
+function showTT(event, d, allData, total) {
+  const rank = allData.findIndex(x => x.name === d.name) + 1;
+  const pct  = FMT_PCT(d.value / total * 100);
+
+  document.getElementById('tt-name').textContent = d.name;
+  document.getElementById('tt-val').textContent  = FMT_MIO(d.value);
+  document.getElementById('tt-pct').textContent  = pct + ' % des Gesamtaufkommens';
+  document.getElementById('tt-rank').textContent = `Rang ${rank} von ${allData.length} Steuerarten`;
+
+  const tt = document.getElementById('tooltip');
+  tt.classList.add('show');
+
+  const cx = event.clientX, cy = event.clientY;
+  const tw = tt.offsetWidth + 24, th = tt.offsetHeight + 24;
+  let left = cx + 14, top = cy - th / 2;
+
+  if (left + tw > window.innerWidth)  left = cx - tw - 8;
+  if (top < 8)                        top  = 8;
+  if (top + th > window.innerHeight)  top  = window.innerHeight - th - 8;
+
+  tt.style.left = left + 'px';
+  tt.style.top  = top  + 'px';
+}
+
+function hideTT() {
+  document.getElementById('tooltip').classList.remove('show');
+}
+
+/* ──────────────────────────────────────────────────────────────
+   RESIZE
+────────────────────────────────────────────────────────────── */
+let _resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => { if (state.data) renderSpiral(); }, 160);
+});
+
+/* ──────────────────────────────────────────────────────────────
+   INIT
+────────────────────────────────────────────────────────────── */
+loadData();
+</script>
+</body>
+</html>
