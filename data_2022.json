@@ -1,20 +1,16 @@
 {
   "year": 2022,
   "source": "genesis",
-  "timestamp": "2026-05-04T22:00:56",
+  "timestamp": "2026-05-04T22:09:40",
   "total": 895715.5,
   "data": [
     {
+      "name": "Umsatzsteuer",
+      "value": 284850.2
+    },
+    {
       "name": "Lohnsteuer",
       "value": 227204.5
-    },
-    {
-      "name": "Umsatzsteuer",
-      "value": 198200.7
-    },
-    {
-      "name": "Einfuhrumsatzsteuer",
-      "value": 86649.5
     },
     {
       "name": "Veranlagte Einkommensteuer",

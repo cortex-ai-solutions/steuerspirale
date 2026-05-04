@@ -1,20 +1,16 @@
 {
   "year": 2023,
   "source": "genesis",
-  "timestamp": "2026-05-04T22:01:04",
+  "timestamp": "2026-05-04T22:09:47",
   "total": 915750.8,
   "data": [
     {
+      "name": "Umsatzsteuer",
+      "value": 291393.9
+    },
+    {
       "name": "Lohnsteuer",
       "value": 236227.5
-    },
-    {
-      "name": "Umsatzsteuer",
-      "value": 212596.0
-    },
-    {
-      "name": "Einfuhrumsatzsteuer",
-      "value": 78797.9
     },
     {
       "name": "Gewerbesteuer (brutto)",

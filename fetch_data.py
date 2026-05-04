@@ -240,6 +240,18 @@ def parse_genesis_csv(content: str, year: int) -> Optional[list[dict]]:
             log.debug(f"Überspringe nicht-numerische Zeile: {raw_val!r} ('{name}')")
             continue
 
+    # Umsatzsteuer + Einfuhrumsatzsteuer zusammenführen
+    ust   = next((r for r in results if "umsatzsteuer" in r["name"].lower()
+                  and "einfuhr" not in r["name"].lower()), None)
+    eust  = next((r for r in results if "einfuhrumsatzsteuer" in r["name"].lower()), None)
+    if ust and eust:
+        combined = round(ust["value"] + eust["value"], 1)
+        log.info(f"Umsatzsteuer ({ust['value']}) + Einfuhrumsatzsteuer ({eust['value']}) "
+                 f"= {combined} Mio. €")
+        ust["value"] = combined
+        ust["name"]  = "Umsatzsteuer"
+        results.remove(eust)
+
     if results:
         log.info(f"{len(results)} Steuerarten aus CSV geparst (Jahr {year}).")
     else:
