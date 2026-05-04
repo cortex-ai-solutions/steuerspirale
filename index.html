@@ -50,14 +50,11 @@
 
     .logo-block { display: flex; align-items: center; gap: 11px; flex-shrink: 0; }
 
-    .logo-mark {
-      width: 46px; height: 46px;
-      background: var(--bmf);
+    .logo-img {
+      height: 46px; width: auto;
       border-radius: 5px;
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 13px; font-weight: 600; letter-spacing: 0.5px;
-      color: white;
+      object-fit: contain;
+      flex-shrink: 0;
     }
 
     .logo-text {
@@ -404,10 +401,10 @@
 <header class="site-header">
   <div class="header-top">
     <div class="logo-block">
-      <div class="logo-mark">BMF</div>
+      <img src="Logo_neu.jpg" alt="Cortex AI Solutions" class="logo-img" />
       <div class="logo-text">
-        Bundesministerium<br>
-        <strong>der Finanzen</strong>
+        Cortex AI Solutions<br>
+        <strong>Steuerspirale</strong>
       </div>
     </div>
     <div class="hdr-sep"></div>
