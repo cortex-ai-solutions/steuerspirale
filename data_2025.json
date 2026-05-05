@@ -1,7 +1,7 @@
 {
   "year": 2025,
   "source": "genesis",
-  "timestamp": "2026-05-05T19:07:43",
+  "timestamp": "2026-05-05T19:10:50",
   "total": 989827.0,
   "data": [
     {
@@ -13,7 +13,7 @@
       "value": 262688.4
     },
     {
-      "name": "Veranlagte Einkommensteuer",
+      "name": "Einkommensteuer",
       "value": 78361.6
     },
     {
@@ -45,8 +45,8 @@
       "value": 17631.9
     },
     {
-      "name": "Grundsteuer B",
-      "value": 15741.6
+      "name": "Grundsteuern",
+      "value": 16086.0
     },
     {
       "name": "Erbschaftsteuer",
@@ -115,10 +115,6 @@
     {
       "name": "Schaumweinsteuer",
       "value": 364.6
-    },
-    {
-      "name": "Grundsteuer A",
-      "value": 344.4
     },
     {
       "name": "Zweitwohnungsteuer",
