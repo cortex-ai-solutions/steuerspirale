@@ -252,6 +252,27 @@ def parse_genesis_csv(content: str, year: int) -> Optional[list[dict]]:
         ust["name"]  = "Umsatzsteuer"
         results.remove(eust)
 
+    # Grundsteuer A + Grundsteuer B zusammenführen
+    gsta  = next((r for r in results if r["name"].lower() == "grundsteuer a"), None)
+    gstb  = next((r for r in results if r["name"].lower() == "grundsteuer b"), None)
+    if gsta and gstb:
+        combined = round(gsta["value"] + gstb["value"], 1)
+        log.info(f"Grundsteuer A ({gsta['value']}) + Grundsteuer B ({gstb['value']}) "
+                 f"= {combined} Mio. €")
+        gsta["value"] = combined
+        gsta["name"]  = "Grundsteuern"
+        results.remove(gstb)
+    elif gsta:
+        gsta["name"] = "Grundsteuern"
+    elif gstb:
+        gstb["name"] = "Grundsteuern"
+
+    # "Veranlagte Einkommensteuer" → "Einkommensteuer"
+    for r in results:
+        if "veranlagte einkommensteuer" in r["name"].lower():
+            log.info(f"Umbenennung: '{r['name']}' → 'Einkommensteuer'")
+            r["name"] = "Einkommensteuer"
+
     if results:
         log.info(f"{len(results)} Steuerarten aus CSV geparst (Jahr {year}).")
     else:
