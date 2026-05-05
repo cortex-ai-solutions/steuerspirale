@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Steuerspirale — Bundesministerium der Finanzen</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson@3/dist/topojson.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
@@ -579,6 +580,8 @@ const FMT_PCT  = d3.format(".2f");          // "31.89"
 /* ──────────────────────────────────────────────────────────────
    STATE
 ────────────────────────────────────────────────────────────── */
+let cachedGermany = null;
+
 let state = {
   data:        null,
   scaleMode:   'sqrt',   // 'sqrt' | 'log' | 'linear'
@@ -794,6 +797,7 @@ function renderSpiral() {
   const svg = d3.select('#spiral-svg');
   svg.selectAll('*').remove();
   svg.attr('viewBox', `0 0 ${W} ${H}`);
+  drawGermany(svg, W, H);
 
   const data  = state.data.data.slice(0, 28);
   const total = state.data.total;
@@ -1003,6 +1007,36 @@ function hideTT() {
 }
 
 /* ──────────────────────────────────────────────────────────────
+   DEUTSCHLAND-UMRISS (TopoJSON)
+────────────────────────────────────────────────────────────── */
+async function loadGermany() {
+  if (cachedGermany) return cachedGermany;
+  try {
+    const world = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json').then(r => r.json());
+    const countries = topojson.feature(world, world.objects.countries);
+    cachedGermany = countries.features.find(f => f.id === '276');
+  } catch (e) {
+    // Silently fail — Visualisierung funktioniert auch ohne Hintergrund
+  }
+  return cachedGermany;
+}
+
+function drawGermany(svg, W, H) {
+  if (!cachedGermany) return;
+  const pad = Math.min(W, H) * 0.06;
+  const projection = d3.geoMercator()
+    .fitExtent([[pad, pad], [W - pad, H - pad]], cachedGermany);
+  const pathGen = d3.geoPath().projection(projection);
+  svg.insert('path', ':first-child')
+    .datum(cachedGermany)
+    .attr('d', pathGen)
+    .attr('fill', 'rgba(255,255,255,0.04)')
+    .attr('stroke', 'rgba(255,255,255,0.18)')
+    .attr('stroke-width', 1.5)
+    .attr('stroke-linejoin', 'round');
+}
+
+/* ──────────────────────────────────────────────────────────────
    RESIZE
 ────────────────────────────────────────────────────────────── */
 let _resizeTimer;
@@ -1014,6 +1048,7 @@ window.addEventListener('resize', () => {
 /* ──────────────────────────────────────────────────────────────
    INIT
 ────────────────────────────────────────────────────────────── */
+loadGermany().then(() => { if (state.data) renderSpiral(); });
 loadData();
 </script>
 </body>
