@@ -479,6 +479,14 @@
     </div>
   </div>
 
+  <div class="ctrl-group">
+    <span class="ctrl-label">Richtung</span>
+    <div class="toggle-group">
+      <button class="toggle-btn active" data-dir="1"  onclick="setSpiralDir(1,  this)">↺ Links</button>
+      <button class="toggle-btn"        data-dir="-1" onclick="setSpiralDir(-1, this)">↻ Rechts</button>
+    </div>
+  </div>
+
   <div class="ctrl-spacer"></div>
 
   <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
@@ -576,6 +584,7 @@ let state = {
   scaleMode:   'sqrt',   // 'sqrt' | 'log' | 'linear'
   labelMode:   'auto',   // 'auto' | 'all' | 'top10' | 'none'
   spiralStart: 0,        // Grad, 0 = 12-Uhr-Position (wie BMF-Original)
+  spiralDir:   1,        // 1 = gegen Uhrzeiger, -1 = im Uhrzeiger (Original-BMF-Stil)
 };
 
 /* ──────────────────────────────────────────────────────────────
@@ -692,6 +701,13 @@ function setSpiralStart(deg) {
   if (state.data) renderSpiral();
 }
 
+function setSpiralDir(dir, el) {
+  state.spiralDir = parseInt(dir);
+  document.querySelectorAll('[data-dir]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  if (state.data) renderSpiral();
+}
+
 /* ──────────────────────────────────────────────────────────────
    RADIUS SCALE FACTORY
 ────────────────────────────────────────────────────────────── */
@@ -715,6 +731,7 @@ function makeRadiusScale(values, maxR) {
 ────────────────────────────────────────────────────────────── */
 function computeSpiralPositions(data, cx, cy, rScale) {
   const startRad = (state.spiralStart * Math.PI) / 180;
+  const dir = state.spiralDir;
   const descending = [...data].sort((a, b) => b.value - a.value);
   const b = Math.min(cx, cy) * 0.065;
 
@@ -726,7 +743,7 @@ function computeSpiralPositions(data, cx, cy, rScale) {
     if (i === 0) {
       theta = Math.max(0.4, r_c / b);
       const sr = b * theta;
-      d._sx = cx + sr * Math.sin(theta + startRad);
+      d._sx = cx + dir * sr * Math.sin(theta + startRad);
       d._sy = cy - sr * Math.cos(theta + startRad);
     } else {
       const prev = descending[i - 1];
@@ -740,7 +757,7 @@ function computeSpiralPositions(data, cx, cy, rScale) {
       let iters = 0;
       do {
         sr = b * theta;
-        const x = cx + sr * Math.sin(theta + startRad);
+        const x = cx + dir * sr * Math.sin(theta + startRad);
         const y = cy - sr * Math.cos(theta + startRad);
         const dist = Math.hypot(x - prev._sx, y - prev._sy);
         if (dist >= minD) break;
@@ -749,7 +766,7 @@ function computeSpiralPositions(data, cx, cy, rScale) {
       } while (iters < 200);
 
       const sr2 = b * theta;
-      d._sx = cx + sr2 * Math.sin(theta + startRad);
+      d._sx = cx + dir * sr2 * Math.sin(theta + startRad);
       d._sy = cy - sr2 * Math.cos(theta + startRad);
     }
   });
