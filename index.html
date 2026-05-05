@@ -1014,7 +1014,7 @@ async function loadGermany() {
   try {
     const world = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json').then(r => r.json());
     const countries = topojson.feature(world, world.objects.countries);
-    cachedGermany = countries.features.find(f => f.id === '276');
+    cachedGermany = countries.features.find(f => String(f.id) === '276');
   } catch (e) {
     // Silently fail — Visualisierung funktioniert auch ohne Hintergrund
   }
