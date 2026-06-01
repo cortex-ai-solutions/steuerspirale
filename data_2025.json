@@ -1,9 +1,13 @@
 {
   "year": 2025,
   "source": "genesis",
-  "timestamp": "2026-05-05T19:10:50",
-  "total": 989827.0,
+  "timestamp": "2026-06-01T10:22:58",
+  "total": 1736166.0,
   "data": [
+    {
+      "name": "Gemeinschaftssteuern",
+      "value": 746339.0
+    },
     {
       "name": "Umsatzsteuer",
       "value": 310205.9
