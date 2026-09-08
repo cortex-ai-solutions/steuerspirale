@@ -114,18 +114,37 @@ _CSV_SKIP_PREFIXES = (
 # (Summenzeilen, die Einzelsteuern bereits enthalten → Doppelzählung vermeiden)
 _AGGREGATE_NAMES = {
     "gemeinschaftsteuern",
+    "gemeinschaftssteuern",       # GENESIS-Schreibweise mit Doppel-s
+    "gemeinschaftliche steuern",
     "bundessteuern",
     "landessteuern",
+    "landesteuern",
     "gemeindesteuern",
     "ländersteuern",
     "eu-steuern",
+    "eu-eigenmittel",
     "steuern insgesamt",
+    "steuereinnahmen insgesamt",
     "steuern vom einkommen",
     "steuern vom umsatz",
     "steuern vom vermögen",
     "verbrauchsteuern",
     "zölle und abschöpfungen",
 }
+
+
+def _norm_aggregate(name: str) -> str:
+    """Normalisiert einen Steuerart-Namen für den Aggregat-Abgleich.
+
+    Kollabiert doppelte 's' (Gemeinschafts-steuern -> Gemeinschaftsteuern),
+    damit Schreibweisen-Varianten aus der GENESIS-CSV zuverlässig greifen.
+    Keine echte Einzelsteuer der Tabelle 71211-0001 kollidiert dadurch mit
+    einem Aggregat-Namen.
+    """
+    return name.strip().lower().replace("ss", "s")
+
+
+_AGGREGATE_NAMES_NORM = {_norm_aggregate(n) for n in _AGGREGATE_NAMES}
 
 
 def parse_credentials(key_str: str) -> tuple[str, Optional[str]]:
@@ -213,7 +232,7 @@ def parse_genesis_csv(content: str, year: int) -> Optional[list[dict]]:
             continue
 
         # Aggregat-Kategorien überspringen (enthalten Einzelsteuern bereits)
-        if name.lower() in _AGGREGATE_NAMES:
+        if _norm_aggregate(name) in _AGGREGATE_NAMES_NORM:
             log.debug(f"Aggregat übersprungen: {name}")
             continue
 

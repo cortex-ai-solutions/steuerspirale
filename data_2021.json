@@ -1,7 +1,7 @@
 {
   "year": 2021,
   "source": "genesis",
-  "timestamp": "2026-05-04T22:09:34",
+  "timestamp": "2026-09-08T19:12:25",
   "total": 833194.6,
   "data": [
     {
@@ -13,7 +13,7 @@
       "value": 218407.1
     },
     {
-      "name": "Veranlagte Einkommensteuer",
+      "name": "Einkommensteuer",
       "value": 72342.2
     },
     {
@@ -37,16 +37,16 @@
       "value": 18334.7
     },
     {
+      "name": "Grundsteuern",
+      "value": 14985.3
+    },
+    {
       "name": "Versicherungsteuer",
       "value": 14979.9
     },
     {
       "name": "Tabaksteuer",
       "value": 14732.5
-    },
-    {
-      "name": "Grundsteuer B",
-      "value": 14573.6
     },
     {
       "name": "Solidaritätszuschlag",
@@ -103,10 +103,6 @@
     {
       "name": "Sonstige Vergnügungsteuer",
       "value": 433.4
-    },
-    {
-      "name": "Grundsteuer A",
-      "value": 411.7
     },
     {
       "name": "Hundesteuer",

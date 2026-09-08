@@ -1,7 +1,7 @@
 {
   "year": 2023,
   "source": "genesis",
-  "timestamp": "2026-05-04T22:09:47",
+  "timestamp": "2026-09-08T19:12:54",
   "total": 915750.8,
   "data": [
     {
@@ -17,7 +17,7 @@
       "value": 75122.1
     },
     {
-      "name": "Veranlagte Einkommensteuer",
+      "name": "Einkommensteuer",
       "value": 73388.4
     },
     {
@@ -37,8 +37,8 @@
       "value": 16850.7
     },
     {
-      "name": "Grundsteuer B",
-      "value": 15075.9
+      "name": "Grundsteuern",
+      "value": 15492.9
     },
     {
       "name": "Tabaksteuer",
@@ -105,10 +105,6 @@
       "value": 420.6
     },
     {
-      "name": "Grundsteuer A",
-      "value": 417.0
-    },
-    {
       "name": "Sportwettsteuer",
       "value": 409.1
     },
@@ -149,7 +145,7 @@
       "value": 2.0
     },
     {
-      "name": "Alcopopsteuer",
+      "name": "Alkopopsteuer",
       "value": 1.4
     },
     {
